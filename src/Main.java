@@ -47,6 +47,7 @@ public class Main {
             for(int i = 0; i < 1000; i++) {
                 img[i] = new ImageType();
                 img[i].set(img_buffer, i*BSIZE);
+                if(i < 100)
                 System.out.println(Arrays.toString(img[i].block));
             }
 
@@ -66,6 +67,14 @@ public class Main {
             System.out.println("file key : " + fileKey.toString());
             System.out.println("file size: " + img_size + " Byte");
             System.out.println(Byte.toUnsignedInt(img[1].block[0]));
+
+            img_all.rewind();
+
+            for(int i = 0; i < img_all.remaining();) {
+                System.out.println(img_all.getInt());
+
+            }
+
 
 //            Libfs.root_inode = Libfs.iget(img, Libfs.root_inode_number);
 
