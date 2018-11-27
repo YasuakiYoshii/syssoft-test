@@ -7,26 +7,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 
-public class Main {
+public class Main implements FileSystem {
 
     private static final int EXIT_SUCCESS = 0;
     private static final int EXIT_FAILURE = 1;
-    static int BSIZE = 512; // block size
 
     public static void main(String args[]) {
-//        Libfs.progname = args[0];
         if (args.length <= 0) {
-//            Libfs.error("usage: %s img_file command [arg...]", Libfs.progname);
-//            Libfs.error("Commands are:");
-//            for (int i = 0; cmd_table[i].name != null; i++)
-//                Libfs.error("    %s %s", cmd_table[i].name, cmd_table[i].args);
             System.err.println("ERROR: input file name.");
             System.exit(EXIT_FAILURE);
         }
 
-//        String cmd = args[1];
         File img_file = new File(args[0]);
         long img_size = img_file.length();
 
@@ -39,52 +34,83 @@ public class Main {
             MappedByteBuffer img_all = img_fd.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, img_size);
 
             // img(512000byte) to array size of 512byte
-            ImageType[] img = new ImageType[1000];
+            ImageType[] img = new ImageType[(int)img_size/BSIZE];
             byte[] img_buffer = new byte[img_all.remaining()];
             img_all.get(img_buffer);
 
             //copy from img_all to img
-            for(int i = 0; i < 1000; i++) {
+            for(int i = 0; i < (int)img_size/BSIZE; i++) {
                 img[i] = new ImageType();
                 img[i].set(img_buffer, i*BSIZE);
-                if(i < 100)
+                if(i == 32)
                 System.out.println(Arrays.toString(img[i].block));
             }
 
 
-
-            // get file information
-            BasicFileAttributes attr = null;
-            Path img_path = img_file.toPath();
-            attr = Files.readAttributes(img_path, BasicFileAttributes.class);
-            Object fileKey = attr.fileKey();
-            if (fileKey == null) {
-                img_fd.close();
-                System.exit(EXIT_FAILURE);
-            }
-
-            // information of fs.img
-            System.out.println("file key : " + fileKey.toString());
-            System.out.println("file size: " + img_size + " Byte");
-            System.out.println(Byte.toUnsignedInt(img[1].block[0]));
-
-            img_all.rewind();
-
-            for(int i = 0; i < img_all.remaining();) {
-                System.out.println(img_all.getInt());
-
+            /********************************************************************************************/
+            /*                                スーパーブロックの一貫性確認                                  */
+            /********************************************************************************************/
+            Byte4[] elements = new Byte4[7];
+            for(int i = 0; i < 7; i++) {
+                elements[i] = new Byte4();
+                elements[i].set(img[1].block, i*4);
+                elements[i].setNum();
             }
 
 
-//            Libfs.root_inode = Libfs.iget(img, Libfs.root_inode_number);
+            SuperBlock sb = new SuperBlock();
+            sb.set(elements);
+            sb.check();
 
-            // shift argc and argv to point the first command argument
-//            int status = EXIT_FAILURE;
-//            if (setjmp(fatal_exception_buf) == 0)
-//                status = exec_cmd(img, cmd, Arrays.copyOfRange(args,3,args.length));
+            /********************************************************************************************/
+            /*                             ビットマップブロックの一貫性確認                                  */
+            /********************************************************************************************/
 
-            // Java system garbage-collect buffer itself
-            // munmap(img, img_size);
+            String val = "";
+            for(byte b : img[58].block){
+                for(int i=0; i<8; i++){
+                    val += String.format("%d", (b & 0x80)/0x80);
+                    b <<= 1;
+                }
+            }
+//            System.out.println(val);
+            char[] bitmap = val.toCharArray();
+            System.out.println(Arrays.toString(bitmap));
+
+            /********************************************************************************************/
+            /*                             inodeブロックの一貫性確認                                       */
+            /********************************************************************************************/
+            dinode[] dinodes = new dinode[8*(57-31)];
+            Byte64[] inodes = new Byte64[8*(57-31)];
+            for(int j=32; j < 58; j++) { // each block
+                for(int i = 0; i < 8; i++) { // each dinode
+                    inodes[i+8*(j-32)] = new Byte64();
+                    inodes[i+8*(j-32)].set(img[j].block, i*64);
+
+                    Byte2[] elements1 = new Byte2[4];
+                    for(int k = 0; k < 4; k++) {
+                        elements1[k] = new Byte2();
+                        elements1[k].set(inodes[i+8*(j-32)].element, i*2);
+                        elements1[k].setNum();
+                    }
+                    Byte4[] elements2 = new Byte4[14];
+                    for(int k = 0; k < 14; k++) {
+                        elements2[k] = new Byte4();
+                        elements2[k].set(inodes[i+8*(j-32)].element, 8+i*4);
+                        elements2[k].setNum();
+                    }
+
+                    dinodes[i+8*(j-32)] = new dinode();
+                    dinodes[i+8*(j-32)].set(elements1, elements2);
+                }
+            }
+
+            System.out.println(dinodes[3].addrs[0]);
+            System.out.println(Arrays.toString(img[67].block));
+            System.out.println(bitmap[870]);
+
+
+
             img_fd.close();
 
             System.exit(EXIT_SUCCESS);
