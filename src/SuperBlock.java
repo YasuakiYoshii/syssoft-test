@@ -32,49 +32,49 @@ public class SuperBlock {
         if(1000 == size) {
             System.out.println("Superblock.size:OK");
         } else {
-            System.out.println("Superblock.size:OUT (" + size + ")");
+            System.out.println("Superblock.size:ERROR (" + size + ")");
         }
 
         /* nblocks */
         if(941 == nblocks) {
             System.out.println("Superblock.nblocks:OK");
         } else {
-            System.out.println("Superblock.nblocks:OUT (" + nblocks + ")");
+            System.out.println("Superblock.nblocks:ERROR (" + nblocks + ")");
         }
 
         /* ninodes */
         if(200 == ninodes) {
             System.out.println("Superblock.ninodes:OK");
         } else {
-            System.out.println("Superblock.ninodes:OUT (" + ninodes + ")");
+            System.out.println("Superblock.ninodes:ERROR (" + ninodes + ")");
         }
 
         /* nlog */
         if(30 == nlog) {
             System.out.println("Superblock.nlog:OK");
         } else {
-            System.out.println("Superblock.nlog:OUT (" + nlog + ")");
+            System.out.println("Superblock.nlog:ERROR (" + nlog + ")");
         }
 
         /* logstart */
         if(2 == logstart) {
             System.out.println("Superblock.logstart:OK");
         } else {
-            System.out.println("Superblock.logstart:OUT (" + logstart + ")");
+            System.out.println("Superblock.logstart:ERROR (" + logstart + ")");
         }
 
         /* inodestart */
         if(32 == inodestart) {
             System.out.println("Superblock.inodestart:OK");
         } else {
-            System.out.println("Superblock.inodestart:OUT (" + inodestart + ")");
+            System.out.println("Superblock.inodestart:ERROR (" + inodestart + ")");
         }
 
         /* bmapstart */
         if(58 == bmapstart) {
             System.out.println("Superblock.bmapstart:OK");
         } else {
-            System.out.println("Superblock.bmapstart:OUT (" + bmapstart + ")");
+            System.out.println("Superblock.bmapstart:ERROR (" + bmapstart + ")");
         }
     }
 }
