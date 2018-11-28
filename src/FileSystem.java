@@ -51,7 +51,16 @@ public interface FileSystem {
 
     // size of dirent = 14
     class dirent {
-        short inum;
-        char[] name = new char[DIRSIZ];
+        int inum;
+        String name = "";
+
+        void set(Byte16 element) {
+            inum = element.num;
+            for(int i=0; i < DIRSIZ; i++) {
+                if(element.name[i] != '\0') {
+                    name += element.name[i];
+                }
+            }
+        }
     }
 }
