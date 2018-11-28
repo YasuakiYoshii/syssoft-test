@@ -4,6 +4,7 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import java.util.Comparator;
 
 
 public class Main implements FileSystem {
@@ -11,13 +12,140 @@ public class Main implements FileSystem {
     private static final int EXIT_SUCCESS = 0;
     private static final int EXIT_FAILURE = 1;
 
-    public static void main(String args[]) {
-        if (args.length <= 0) {
-            System.err.println("ERROR: input file name.");
-            System.exit(EXIT_FAILURE);
-        }
+    public void readFolder( File dir ) {
 
-        File img_file = new File(args[0]);
+        File[] files = dir.listFiles();
+        if( files == null )
+            return;
+        java.util.Arrays.sort(files, Comparator.comparing(File::getName));
+        for( File file : files ) {
+            if( !file.exists() )
+                continue;
+            else if( file.isDirectory() )
+                readFolder( file );
+            else if( file.isFile() )
+                execute( file );
+        }
+    }
+
+    public String findFileName(ImageType[] img, dinode[] dinodes, int inum) {
+        for(int i=0; i < 8*(57-31); i++) {
+            int file_num = dinodes[i].size / 16;
+            for (int j = 0; j < 13; j++) {
+                if (dinodes[i].addrs[j] != 0) {
+                    if (j != NDIRECT) {
+                        if (dinodes[i].type == T_DIR) { // direct 参照先のディレクトリのリンク確認
+                            for (int k = 0; k < BSIZE / 16; k++) {
+                                Byte16 file = new Byte16();
+                                dirent tmpdirent = new dirent();
+                                file.set(img[dinodes[i].addrs[j]].block, k * 16);
+                                file.setNum();
+                                tmpdirent.set(file);
+                                if (file_num == 0) {
+                                    break;
+                                } else {
+                                    if(tmpdirent.inum == inum){
+                                        return tmpdirent.name;
+                                    }
+                                    file_num--;
+                                }
+                            }
+                        }
+                    }
+
+                    /* indirect */
+                    if (j == NDIRECT && dinodes[i].addrs[j] != 0) {
+                        for (int k = 0; k < 128; k++) {
+                            if (dinodes[i].indirection[k] != 0) {
+                                if (dinodes[i].type == T_DIR) { // direct 参照先のディレクトリのリンク確認
+                                    for (int l = 0; l < BSIZE / 16; l++) {
+                                        Byte16 file = new Byte16();
+                                        dirent tmpdirent = new dirent();
+                                        file.set(img[dinodes[i].indirection[k]].block, l * 16);
+                                        file.setNum();
+                                        tmpdirent.set(file);
+                                        if (file_num == 0) {
+                                            break;
+                                        } else {
+                                            if(tmpdirent.inum == inum){
+                                                return tmpdirent.name;
+                                            }
+                                            file_num--;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void showfiles(ImageType[] img, dinode dinode, int i, dinode[] dinodes) {
+        int file_num = dinode.size / 16;
+        for (int j = 0; j < 13; j++) {
+            /* direct */
+            if (dinode.type == T_DIR) { // direct 参照先のディレクトリのリンク確認
+                if (dinode.addrs[j] != 0) {
+                    if (j != NDIRECT) {
+                        for (int k = 0; k < BSIZE / 16; k++) { // nlinkのカウント
+                            Byte16 file = new Byte16();
+                            dirent tmpdirent = new dirent();
+                            file.set(img[dinode.addrs[j]].block, k * 16);
+                            file.setNum();
+                            tmpdirent.set(file);
+                            if (file_num == 0) {
+                                continue;
+                            } else if(!tmpdirent.name.equals("")){
+                                if(dinodes[tmpdirent.inum].type == T_DIR)
+                                    System.out.println(tmpdirent.name + " " + dinodes[tmpdirent.inum].type + " "
+                                            + tmpdirent.inum + " " + dinodes[tmpdirent.inum].size + " "
+                                            + dinodes[tmpdirent.inum].nlink);
+                                file_num--;
+                            }
+                        }
+                    }
+                }
+            }
+
+            /* indirect */
+            if (dinode.type == T_DIR) { // direct 参照先のディレクトリのリンク確認
+                if (j == NDIRECT && dinode.addrs[j] != 0) {
+                    for (int k = 0; k < 128; k++) {
+                        if (dinode.indirection[k] != 0) {
+                            for (int l = 0; l < BSIZE / 16; l++) {
+                                Byte16 file = new Byte16();
+                                dirent tmpdirent = new dirent();
+                                file.set(img[dinode.indirection[k]].block, l * 16);
+                                file.setNum();
+                                tmpdirent.set(file);
+                                if (file_num == 0) {
+                                    continue;
+                                } else if(!tmpdirent.name.equals("")){
+                                    if(dinodes[tmpdirent.inum].type == T_DIR)
+                                        System.out.println(tmpdirent.name + " " + dinodes[tmpdirent.inum].type + " "
+                                                + tmpdirent.inum + " " + dinodes[tmpdirent.inum].size + " "
+                                                + dinodes[tmpdirent.inum].nlink);
+                                    file_num--;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if(dinode.type != T_DIR && dinode.type != 0 && findFileName(img, dinodes, i) != null) {
+            System.out.println(findFileName(img, dinodes, i) + " " + dinode.type + " " + i + " " + dinode.size
+                    + " " + dinode.nlink);
+        }
+    }
+
+    public void execute( File img_file ) {
+        // ここにやりたい処理を書く
+        System.out.println("------------------------------ " + img_file.getPath() + " --------------------------------");
+//        File img_file = new File(file);
         long img_size = img_file.length();
 
 
@@ -69,7 +197,7 @@ public class Main implements FileSystem {
                     b <<= 1;
                 }
                 for(int i=7; i >= 0; i--)
-                val += tmp[i];
+                    val += tmp[i];
             }
 //            System.out.println(val);
             char[] bitmap = val.toCharArray();
@@ -107,11 +235,14 @@ public class Main implements FileSystem {
 
             /********************************************************************************************/
             /*                            ブロックの使用状況に関する一貫性の確認                             */
+            /*                                          および                                           */
+            /*                                    ディレクトリ情報の抽出                                   */
             /********************************************************************************************/
 
             int[] inode_num = new int[26*8]; // 各inodeの参照数
             int inodeError = 0;
             int bitmapError = 0;
+            int dirError = 0;
             int bcount;
             int file_num;
             for(int i=0; i < 8*(57-31); i++) {
@@ -122,7 +253,6 @@ public class Main implements FileSystem {
                     if(dinodes[i].addrs[j] != 0) {
                         if(j!=NDIRECT){
                             if(dinodes[i].type == T_DIR) { // direct 参照先のディレクトリのリンク確認
-                                dirent prev = new dirent();
                                 for (int k=0; k < BSIZE/16; k++) { // nlinkのカウント
                                     Byte16 file = new Byte16();
                                     dirent tmpdirent = new dirent();
@@ -132,18 +262,9 @@ public class Main implements FileSystem {
                                     if(file_num == 0) {
                                         break;
                                     } else {
-//                                        if(prev.name.equals(".") && tmpdirent.name.equals("..")
-//                                            && prev.inum == tmpdirent.inum){ // root directory
-//                                            file_num--;
-//                                        } else {
-//                                            inode_num[tmpdirent.inum] += 1;
-//                                            prev = tmpdirent;
-//                                            file_num--;
-//                                        }
                                         if(!tmpdirent.name.equals(".")) {
                                             inode_num[tmpdirent.inum] += 1;
                                         }
-                                        prev = tmpdirent;
                                         file_num--;
                                     }
                                 }
@@ -215,7 +336,8 @@ public class Main implements FileSystem {
                     truebcount = 0;
                 }
                 if(bcount != truebcount) {
-                    System.out.println("参照データブロック数が正しくありません(" + bcount + " CORRECT:" + truebcount + ")");
+                    System.out.println("参照データブロック数が正しくありません(inode番号:" + i
+                            + " 参照数:" + bcount + " size/BSIZE:" + truebcount + ")");
                     inodeError++;
                 }
             }
@@ -227,12 +349,6 @@ public class Main implements FileSystem {
                     System.out.println("ビットマップでは使用済みのブロックが参照されていません(BLOCK番号:" + i + ")");
                     bitmapError++;
                 }
-            }
-
-            if(bitmapError == 0) {
-                System.out.println("blockの使用状況に関する一貫性:OK");
-            } else {
-                System.out.println("blockの使用状況に関する一貫性:ERROR (" + bitmapError + " errors)");
             }
 
 
@@ -254,10 +370,17 @@ public class Main implements FileSystem {
                     System.out.println("nlinkの値と各ディレクトリからの総参照数が一致しません(inode番号:"
                             + i + " nlink:" + dinodes[i].nlink + " 総参照数:" + inode_num[i] + ")");
                     inodeError++;
+                    dirError++;
                 }
             }
 
-//            System.out.println(dinodes[1].nlink);
+            System.out.println();
+
+            if(bitmapError == 0) {
+                System.out.println("blockの使用状況に関する一貫性:OK");
+            } else {
+                System.out.println("blockの使用状況に関する一貫性:ERROR (" + bitmapError + " errors)");
+            }
 
 
             if(inodeError == 0) {
@@ -266,20 +389,35 @@ public class Main implements FileSystem {
                 System.out.println("inodeに関する一貫性:ERROR (" + inodeError + " errors)");
             }
 
-            /********************************************************************************************/
-            /*                                    ディレクトリ情報の抽出                                   */
-            /********************************************************************************************/
+            if(dirError == 0) {
+                System.out.println("ディレクトリに関する一貫性:OK");
+            } else {
+                System.out.println("ディレクトリに関する一貫性:ERROR (" + dirError + " errors)");
+            }
 
-
+            for(int i=0; i < 8*26; i++) {
+                showfiles(img, dinodes[i], i, dinodes);
+//                System.out.println();
+            }
 
 
             img_fd.close();
 
-            System.exit(EXIT_SUCCESS);
         } catch (IOException e) {
-//            perror(img_file);
             e.printStackTrace();
             System.exit(EXIT_FAILURE);
         }
+        System.out.println("-------------------------------------------------------------------------------");
+        System.out.println();
+    }
+
+    public static void main(String args[]) {
+        if (args.length <= 0) {
+            System.err.println("ERROR: input file name.");
+            System.exit(EXIT_FAILURE);
+        }
+
+        new Main().readFolder( new File(args[0]) );
+
     }
 }
