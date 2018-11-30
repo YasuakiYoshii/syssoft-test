@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.List;
+
 public interface FileSystem {
     /* fs.h */
     int ROOTINO = 1; // root i-number
@@ -27,6 +30,8 @@ public interface FileSystem {
         int size;            // Size of file (bytes)
         int[] addrs = new int[NDIRECT+1]; // Data block addresses
         int[] indirection = new int[128];
+        int parentInode;
+        List<dinode> children = new ArrayList<>();
 
         void set(ImageType[] img, Byte2[] elements1, Byte4[] elements2) {
             type = elements1[0].num;

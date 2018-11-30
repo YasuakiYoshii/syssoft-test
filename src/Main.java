@@ -28,6 +28,7 @@ public class Main implements FileSystem {
         }
     }
 
+    // 指定されたinode番号の名前を取り出す
     public String findFileName(ImageType[] img, dinode[] dinodes, int inum) {
         for(int i=0; i < 8*(57-31); i++) {
             int file_num = dinodes[i].size / 16;
@@ -83,6 +84,16 @@ public class Main implements FileSystem {
         return null;
     }
 
+    // 指定されたinodeのinode番号を返す
+    public int geti(dinode dinode, dinode[] dinodes) {
+        for (int i=0; i < 8*26; i++) {
+            if(dinode == dinodes[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     public void showfiles(ImageType[] img, dinode dinode, int i, dinode[] dinodes) {
         int file_num = dinode.size / 16;
         for (int j = 0; j < 13; j++) {
@@ -90,7 +101,7 @@ public class Main implements FileSystem {
             if (dinode.type == T_DIR) { // direct 参照先のディレクトリのリンク確認
                 if (dinode.addrs[j] != 0) {
                     if (j != NDIRECT) {
-                        for (int k = 0; k < BSIZE / 16; k++) { // nlinkのカウント
+                        for (int k = 0; k < BSIZE / 16; k++) {
                             Byte16 file = new Byte16();
                             dirent tmpdirent = new dirent();
                             file.set(img[dinode.addrs[j]].block, k * 16);
@@ -102,7 +113,7 @@ public class Main implements FileSystem {
                                 if(dinodes[tmpdirent.inum].type == T_DIR)
                                     System.out.println(tmpdirent.name + " " + dinodes[tmpdirent.inum].type + " "
                                             + tmpdirent.inum + " " + dinodes[tmpdirent.inum].size + " "
-                                            + dinodes[tmpdirent.inum].nlink);
+                                            + dinodes[tmpdirent.inum].nlink + " " + dinodes[tmpdirent.inum].parentInode);
                                 file_num--;
                             }
                         }
@@ -127,7 +138,7 @@ public class Main implements FileSystem {
                                     if(dinodes[tmpdirent.inum].type == T_DIR)
                                         System.out.println(tmpdirent.name + " " + dinodes[tmpdirent.inum].type + " "
                                                 + tmpdirent.inum + " " + dinodes[tmpdirent.inum].size + " "
-                                                + dinodes[tmpdirent.inum].nlink);
+                                                + dinodes[tmpdirent.inum].nlink + " " + dinodes[tmpdirent.inum].parentInode);
                                     file_num--;
                                 }
                             }
@@ -138,7 +149,7 @@ public class Main implements FileSystem {
         }
         if(dinode.type != T_DIR && dinode.type != 0 && findFileName(img, dinodes, i) != null) {
             System.out.println(findFileName(img, dinodes, i) + " " + dinode.type + " " + i + " " + dinode.size
-                    + " " + dinode.nlink);
+                    + " " + dinode.nlink + " " + dinode.parentInode);
         }
     }
 
@@ -259,11 +270,23 @@ public class Main implements FileSystem {
                                     file.set(img[dinodes[i].addrs[j]].block, k*16);
                                     file.setNum();
                                     tmpdirent.set(file);
-                                    if(file_num == 0) {
-                                        break;
+                                    if(file_num == 0 || tmpdirent.name.equals("")) {
+                                        continue;
                                     } else {
-                                        if(!tmpdirent.name.equals(".")) {
+                                        if(!tmpdirent.name.equals(".")) { // "."についてはカウントしない
                                             inode_num[tmpdirent.inum] += 1;
+                                        }
+                                        dinodes[i].children.add(dinodes[tmpdirent.inum]); // 子の登録
+                                        dinodes[tmpdirent.inum].parentInode = i; // 親の登録
+                                        if(i==1 && tmpdirent.name.equals("..") && tmpdirent.inum !=1) { // ルートディレクトリにおける".."
+                                            System.out.println("ルートディレクトリの\"..\"が自分自身を指していません(inode番号:" +
+                                                    + tmpdirent.inum + "を指しています)");
+                                            dirError++;
+                                        }
+                                        if(i != 0 && dinodes[tmpdirent.inum].type == 0) {
+                                            System.out.println("ディレクトリが参照しているのは正しいinode番号ではありません(inode番号:"
+                                                     + tmpdirent.inum + "は未使用)");
+                                            dirError++;
                                         }
                                         file_num--;
                                     }
@@ -291,20 +314,30 @@ public class Main implements FileSystem {
                         for(int k=0; k < 128; k++) {
                             if(dinodes[i].indirection[k] != 0) {
                                 if(dinodes[i].type == T_DIR) { // direct 参照先のディレクトリのリンク確認
-                                    dirent prev = new dirent();
                                     for (int l=0; l < BSIZE/16; l++) {
                                         Byte16 file = new Byte16();
                                         dirent tmpdirent = new dirent();
                                         file.set(img[dinodes[i].indirection[k]].block, l*16);
                                         file.setNum();
                                         tmpdirent.set(file);
-                                        if(file_num == 0) {
-                                            break;
+                                        if(file_num == 0 || tmpdirent.name.equals("")) {
+                                            continue;
                                         } else {
-                                            if(!tmpdirent.name.equals(".")) {
+                                            if(!tmpdirent.name.equals(".")) { // "."についてはカウントしない
                                                 inode_num[tmpdirent.inum] += 1;
                                             }
-                                            prev = tmpdirent;
+                                            dinodes[i].children.add(dinodes[tmpdirent.inum]); // 子の登録
+                                            dinodes[tmpdirent.inum].parentInode = i; // 親の登録
+                                            if(i==1 && tmpdirent.name.equals("..") && tmpdirent.inum !=1) { // ルートディレクトリにおける".."
+                                                System.out.println("ルートディレクトリの\"..\"が自分自身を指していません(inode番号:" +
+                                                        + tmpdirent.inum + "を指しています)");
+                                                dirError++;
+                                            }
+                                            if(i != 0 && dinodes[tmpdirent.inum].type == 0) {
+                                                System.out.println("ディレクトリが参照しているのは正しいinode番号ではありません(inode番号:"
+                                                        + tmpdirent.inum + "は未使用)");
+                                                dirError++;
+                                            }
                                             file_num--;
                                         }
                                     }
@@ -369,6 +402,7 @@ public class Main implements FileSystem {
                 if(dinodes[i].type != 0 && inode_num[i] != dinodes[i].nlink) {
                     System.out.println("nlinkの値と各ディレクトリからの総参照数が一致しません(inode番号:"
                             + i + " nlink:" + dinodes[i].nlink + " 総参照数:" + inode_num[i] + ")");
+                    System.out.println("\".\"による自分自身の参照がカウントされている可能性があります");
                     inodeError++;
                     dirError++;
                 }
@@ -397,8 +431,18 @@ public class Main implements FileSystem {
 
             for(int i=0; i < 8*26; i++) {
                 showfiles(img, dinodes[i], i, dinodes);
-//                System.out.println();
             }
+
+            // 各dinode(ディレクトリタイプのみ)の子ファイルリスト
+//            for(int i=0; i < 8*26; i++) {
+//                if(dinodes[i].children.size() > 0) {
+//                    System.out.print("inode:" + i);
+//                    for (dinode dinode : dinodes[i].children) {
+//                        System.out.print(" " + findFileName(img, dinodes, geti(dinode, dinodes)));
+//                    }
+//                    System.out.println();
+//                }
+//            }
 
 
             img_fd.close();
