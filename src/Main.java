@@ -194,7 +194,7 @@ public class Main implements FileSystem {
 
             SuperBlock sb = new SuperBlock();
             sb.set(elements);
-            sb.check();
+            int sbError = sb.check();
 
             /********************************************************************************************/
             /*                                ビットマップブロックの抽出                                    */
@@ -288,6 +288,11 @@ public class Main implements FileSystem {
                                                      + tmpdirent.inum + "は未使用)");
                                             dirError++;
                                         }
+                                        if(tmpdirent.name.equals("..") && tmpdirent.inum != i) { // ".."が親ディレクトリを参照していない
+                                            System.out.println("\"..\"が親ディレクトリを参照していません(該当ディレクトリのinode番号:"
+                                                    + i + ")");
+                                            dirError++;
+                                        }
                                         file_num--;
                                     }
                                 }
@@ -336,6 +341,11 @@ public class Main implements FileSystem {
                                             if(i != 0 && dinodes[tmpdirent.inum].type == 0) {
                                                 System.out.println("ディレクトリが参照しているのは正しいinode番号ではありません(inode番号:"
                                                         + tmpdirent.inum + "は未使用)");
+                                                dirError++;
+                                            }
+                                            if(tmpdirent.name.equals("..") && tmpdirent.inum != i) { // ".."が親ディレクトリを参照していない
+                                                System.out.println("\"..\"が親ディレクトリを参照していません(該当ディレクトリのinode番号:"
+                                                        + i + ")");
                                                 dirError++;
                                             }
                                             file_num--;
@@ -410,38 +420,41 @@ public class Main implements FileSystem {
 
             System.out.println();
 
+            if(sbError == 0) {
+                System.out.println("スーパーブロックに関する一貫性:OK");
+            } else if(sbError == 1){
+                System.out.println("スーパーブロックに関する一貫性:ERROR (" + sbError + " error found)");
+            } else {
+                System.out.println("スーパーブロックに関する一貫性:ERROR (" + sbError + " errors found)");
+            }
+
             if(bitmapError == 0) {
                 System.out.println("blockの使用状況に関する一貫性:OK");
+            } else if(bitmapError == 1){
+                System.out.println("blockの使用状況に関する一貫性:ERROR (" + bitmapError + " error found)");
             } else {
-                System.out.println("blockの使用状況に関する一貫性:ERROR (" + bitmapError + " errors)");
+                System.out.println("blockの使用状況に関する一貫性:ERROR (" + bitmapError + " errors found)");
             }
 
 
             if(inodeError == 0) {
                 System.out.println("inodeに関する一貫性:OK");
+            } else if(inodeError == 1){
+                System.out.println("inodeに関する一貫性:ERROR (" + inodeError + " error found)");
             } else {
-                System.out.println("inodeに関する一貫性:ERROR (" + inodeError + " errors)");
+                System.out.println("inodeに関する一貫性:ERROR (" + inodeError + " errors found)");
             }
 
             if(dirError == 0) {
                 System.out.println("ディレクトリに関する一貫性:OK");
+            } else if(dirError == 1){
+                System.out.println("ディレクトリに関する一貫性:ERROR (" + dirError + " error found)");
             } else {
-                System.out.println("ディレクトリに関する一貫性:ERROR (" + dirError + " errors)");
+                System.out.println("ディレクトリに関する一貫性:ERROR (" + dirError + " errors found)");
             }
 
-            for(int i=0; i < 8*26; i++) {
-                showfiles(img, dinodes[i], i, dinodes);
-            }
-
-            // 各dinode(ディレクトリタイプのみ)の子ファイルリスト
 //            for(int i=0; i < 8*26; i++) {
-//                if(dinodes[i].children.size() > 0) {
-//                    System.out.print("inode:" + i);
-//                    for (dinode dinode : dinodes[i].children) {
-//                        System.out.print(" " + findFileName(img, dinodes, geti(dinode, dinodes)));
-//                    }
-//                    System.out.println();
-//                }
+//                showfiles(img, dinodes[i], i, dinodes); // ファイルの中身を見るためのデバッグ
 //            }
 
 

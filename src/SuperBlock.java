@@ -27,12 +27,14 @@ public class SuperBlock {
         System.out.println(bmapstart);
     }
 
-    void check() {
+    int check() {
+        int error = 0;
         /* size */
         if(1000 == size) {
             System.out.println("Superblock.size:OK");
         } else {
             System.out.println("Superblock.size:ERROR (" + size + ")");
+            error++;
         }
 
         /* nblocks */
@@ -40,6 +42,7 @@ public class SuperBlock {
             System.out.println("Superblock.nblocks:OK");
         } else {
             System.out.println("Superblock.nblocks:ERROR (" + nblocks + ")");
+            error++;
         }
 
         /* ninodes */
@@ -47,6 +50,7 @@ public class SuperBlock {
             System.out.println("Superblock.ninodes:OK");
         } else {
             System.out.println("Superblock.ninodes:ERROR (" + ninodes + ")");
+            error++;
         }
 
         /* nlog */
@@ -54,6 +58,7 @@ public class SuperBlock {
             System.out.println("Superblock.nlog:OK");
         } else {
             System.out.println("Superblock.nlog:ERROR (" + nlog + ")");
+            error++;
         }
 
         /* logstart */
@@ -61,6 +66,7 @@ public class SuperBlock {
             System.out.println("Superblock.logstart:OK");
         } else {
             System.out.println("Superblock.logstart:ERROR (" + logstart + ")");
+            error++;
         }
 
         /* inodestart */
@@ -68,6 +74,7 @@ public class SuperBlock {
             System.out.println("Superblock.inodestart:OK");
         } else {
             System.out.println("Superblock.inodestart:ERROR (" + inodestart + ")");
+            error++;
         }
 
         /* bmapstart */
@@ -75,6 +82,8 @@ public class SuperBlock {
             System.out.println("Superblock.bmapstart:OK");
         } else {
             System.out.println("Superblock.bmapstart:ERROR (" + bmapstart + ")");
+            error++;
         }
+        return error;
     }
 }
